@@ -1,0 +1,30 @@
+const Web3 = require('web3');
+
+// 连接到以太经典节点
+const web3 = new Web3('https://ethereumclassic.network');
+
+// 从发送者地址导入私钥
+const senderAddress = '0xYourSenderAddress';
+const privateKey = '0xYourPrivateKey';
+
+// 接收者地址和转账金额
+const receiverAddress = '0xReceiverAddress';
+const amountInWei = web3.utils.toWei('1', 'ether'); // 1 ETC
+
+// 使用私钥对转账进行签名
+const signTransaction = async () => {
+    const signedTx = await web3.eth.accounts.signTransaction({
+        to: receiverAddress,
+        value: amountInWei,
+        gas: 21000, // 以太经典网络的标准 gas 限制
+        gasPrice: await web3.eth.getGasPrice(),
+        nonce: await web3.eth.getTransactionCount(senderAddress),
+    }, privateKey);
+
+    // 发送签名的交易
+    const receipt = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+    console.log('Transaction receipt:', receipt);
+};
+
+// 执行转账
+signTransaction();
