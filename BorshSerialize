@@ -1,0 +1,50 @@
+use near_sdk::{env, near_bindgen, borsh::{self, BorshDeserialize, BorshSerialize}, json_types::{ValidAccountId, U128}};
+use near_sdk::collections::{UnorderedMap, Vector};
+use near_sdk::serde_json::json;
+use near_sdk::borsh::BorshStorageKey;
+use near_contract_standards::non_fungible_token::metadata::NFTMetadata;
+use near_contract_standards::non_fungible_token::{Token, TokenId, TokenMetadata};
+use near_contract_standards::non_fungible_token::receiver::NonFungibleTokenReceiver;
+
+#[near_bindgen]
+#[derive(Default, BorshDeserialize, BorshSerialize)]
+pub struct Contract {
+    // 存储 NFT 元数据
+    tokens: UnorderedMap<TokenId, TokenMetadata>,
+    // 存储 NFT 拥有者
+    token_owners: UnorderedMap<TokenId, ValidAccountId>,
+    // 存储 NFT 拥有者的代币列表
+    owner_tokens: UnorderedMap<ValidAccountId, Vector<TokenId>>,
+}
+
+#[near_bindgen]
+impl Contract {
+    // 创建 NFT
+    #[payable]
+    pub fn mint_token(&mut self, token_id: TokenId, token_metadata: TokenMetadata) {
+        let account_id = env::predecessor_account_id();
+        assert!(!self.tokens.contains_key(&token_id), "Token already exists");
+        assert!(!self.token_owners.contains_key(&token_id), "Token already owned");
+        self.tokens.insert(&token_id, &token_metadata);
+        self.token_owners.insert(&token_id, &account_id);
+        self.owner_tokens.entry(&account_id).or_default().push(&token_id);
+    }
+}
+
+#[near_bindgen]
+impl NonFungibleTokenReceiver for Contract {
+    // 处理 NFT 转账
+    fn nft_on_transfer(
+        &mut self,
+        token_id: TokenId,
+        _previous_owner_id: ValidAccountId,
+        new_owner_id: ValidAccountId,
+        _data: Vec<u8>,
+    ) {
+        assert!(self.token_owners.get(&token_id).is_some(), "Token does not exist");
+        assert_eq!(*self.token_owners.get(&token_id).unwrap(), env::predecessor_account_id(), "Unauthorized transfer");
+        self.token_owners.insert(&token_id, &new_owner_id);
+        self.owner_tokens.get(&new_owner_id).unwrap().push(&token_id);
+        self.owner_tokens.get(&env::predecessor_account_id()).unwrap().retain(|id| id != &token_id);
+    }
+}
