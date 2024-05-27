@@ -1,0 +1,16 @@
+from bitcoinrpc.authproxy import AuthServiceProxy, JSONRPCException
+
+# 连接到 Bitcoin Core 节点
+rpc_user = "your_rpc_user"
+rpc_password = "your_rpc_password"
+rpc_host = "localhost"
+rpc_port = "8332"
+
+rpc_connection = AuthServiceProxy(f"http://{rpc_user}:{rpc_password}@{rpc_host}:{rpc_port}")
+
+# 查询比特币节点的信息
+try:
+    info = rpc_connection.getblockchaininfo()
+    print("Bitcoin Core 信息:", info)
+except JSONRPCException as e:
+    print("RPC 错误:", e)
