@@ -1,0 +1,57 @@
+use ethers::prelude::*;
+use std::convert::TryFrom;
+use std::sync::Arc;
+use ethers::signers::{LocalWallet, Signer};
+use ethers::types::{Address, U256};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // 连接到以太坊兼容的节点（如 Binance Smart Chain）
+    let provider = Provider::<Http>::try_from("https://bsc-dataseed.binance.org/")?;
+    let provider = Arc::new(provider);
+
+    // 发送者地址和私钥
+    let private_key = "YOUR_PRIVATE_KEY";
+    let wallet: LocalWallet = private_key.parse()?;
+    let wallet = wallet.with_chain_id(56u64); // BSC 主网 Chain ID 是 56
+
+    // 连接钱包和提供者
+    let client = SignerMiddleware::new(provider.clone(), wallet);
+    let client = Arc::new(client);
+
+    // 接收者地址
+    let recipient: Address = "0xRecipientAddress".parse()?;
+
+    // ERC-20 代币合约地址和发送数量
+    let erc20_contract_address: Address = "0xYourERC20ContractAddress".parse()?;
+    let amount = U256::from(1000u64); // 发送的代币数量
+
+    // ERC-20 合约的 ABI
+    let abi: Abi = serde_json::from_str(r#"[{
+        "constant": false,
+        "inputs": [
+            {"name": "to", "type": "address"},
+            {"name": "value", "type": "uint256"}
+        ],
+        "name": "transfer",
+        "outputs": [{"name": "", "type": "bool"}],
+        "type": "function"
+    }]"#)?;
+
+    // 加载 ERC-20 合约
+    let contract = Contract::new(erc20_contract_address, abi, client.clone());
+
+    // 构建交易
+    let call = contract.method::<_, bool>("transfer", (recipient, amount))?;
+    let pending_tx = call.send().await?;
+
+    // 等待交易确认
+    let receipt = pending_tx.confirmations(3).await?;
+
+    match receipt {
+        Some(receipt) => println!("交易成功，交易哈希: {:?}", receipt.transaction_hash),
+        None => println!("交易未确认"),
+    }
+
+    Ok(())
+}
